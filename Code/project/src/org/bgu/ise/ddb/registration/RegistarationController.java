@@ -25,6 +25,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.Mongo;
+import com.mongodb.MongoException;
 
 /**
  * @author Alex
@@ -50,13 +51,27 @@ public class RegistarationController extends ParentController {
 	public void registerNewUser(@RequestParam("username") String username, @RequestParam("password") String password,
 			@RequestParam("firstName") String firstName, @RequestParam("lastName") String lastName,
 			HttpServletResponse response) {
-		System.out.println(username + " " + password + " " + lastName + " " + firstName);
-		Mongo mongo = new Mongo("localhost", 27017);
-		DB db = mongo.getDB("db");
-		DBCollection collection = db.getCollection("users");
+
+		Mongo mongo;
+		DB db;
+		DBCollection collection;
+		try {
+			// Connection Settings
+			mongo = new Mongo("localhost", 27017);
+			db = mongo.getDB("db");
+			collection = db.getCollection("users");
+		} catch (MongoException me) {
+			System.out.println("A problem has occured.");
+			me.getMessage();
+			HttpStatus status = HttpStatus.BAD_REQUEST;
+			response.setStatus(status.value());
+			return;
+		}
 		try {
 			if (isExistUser(username)) {
 				System.out.println("Username already exists");
+				HttpStatus status = HttpStatus.REQUEST_TIMEOUT;
+				response.setStatus(status.value());
 				return;
 			}
 		} catch (IOException e) {
@@ -72,9 +87,11 @@ public class RegistarationController extends ParentController {
 			collection.insert(document);
 			HttpStatus status = HttpStatus.OK;
 			response.setStatus(status.value());
+			System.out.println("The user has been registered.");
 		} catch (Exception e) {
 			System.out.println("A problem has occured.");
-			e.printStackTrace();
+			HttpStatus status = HttpStatus.BAD_REQUEST;
+			response.setStatus(status.value());
 		}
 	}
 
@@ -89,16 +106,23 @@ public class RegistarationController extends ParentController {
 	@SuppressWarnings("deprecation")
 	@RequestMapping(value = "is_exist_user", method = { RequestMethod.GET })
 	public boolean isExistUser(@RequestParam("username") String username) throws IOException {
-		System.out.println(username);
 		boolean result = false;
-		Mongo mongo = new Mongo("localhost", 27017);
-		DB db = mongo.getDB("db");
-		DBCollection collection = db.getCollection("users");
-		BasicDBObject whereQuery = new BasicDBObject();
-		whereQuery.put("username", username);
-		DBCursor cursor = collection.find(whereQuery);
-		if (cursor.hasNext()) {
-			result = true;
+
+		try {
+			// Connection Settings
+			Mongo mongo = new Mongo("localhost", 27017);
+			DB db = mongo.getDB("db");
+			DBCollection collection = db.getCollection("users");
+
+			BasicDBObject whereQuery = new BasicDBObject();
+			whereQuery.put("username", username);
+			DBCursor cursor = collection.find(whereQuery);
+			if (cursor.hasNext()) {
+				result = true;
+			}
+		} catch (MongoException me) {
+			System.out.println("A problem has occured.");
+			me.getMessage();
 		}
 		return result;
 	}
@@ -115,13 +139,21 @@ public class RegistarationController extends ParentController {
 	@RequestMapping(value = "validate_user", method = { RequestMethod.POST })
 	public boolean validateUser(@RequestParam("username") String username, @RequestParam("password") String password)
 			throws IOException {
-		System.out.println(username + " " + password);
-
 		boolean result = false;
-
-		Mongo mongo = new Mongo("localhost", 27017);
-		DB db = mongo.getDB("db");
-		DBCollection collection = db.getCollection("users");
+		Mongo mongo;
+		DB db;
+		DBCollection collection;
+		
+		try {
+			// Connection Settings
+			mongo = new Mongo("localhost", 27017);
+			db = mongo.getDB("db");
+			collection = db.getCollection("users");
+		} catch (MongoException me) {
+			System.out.println("A problem has occured.");
+			me.getMessage();
+			return result;
+		}
 
 		try {
 			if (isExistUser(username)) {
@@ -154,23 +186,29 @@ public class RegistarationController extends ParentController {
 	@SuppressWarnings("deprecation")
 	@RequestMapping(value = "get_number_of_registred_users", method = { RequestMethod.GET })
 	public int getNumberOfRegistredUsers(@RequestParam("days") int days) throws IOException {
-		System.out.println(days + "");
 		int result = 0;
-		Mongo mongo = new Mongo("localhost", 27017);
-		DB db = mongo.getDB("db");
-		DBCollection collection = db.getCollection("users");
+		Mongo mongo;
+		DB db;
+		DBCollection collection;
+		
+		try {
+			// Connection Settings
+			mongo = new Mongo("localhost", 27017);
+			db = mongo.getDB("db");
+			collection = db.getCollection("users");
+		} catch (MongoException me) {
+			System.out.println("A problem has occured.");
+			me.getMessage();
+			return result;
+		}
 
 		Date startDate = DateUtils.addDays(new Date(), -days);
 		Date endDate = new Date();
-
-		System.out.println(startDate);
-		System.out.println(endDate);
 
 		DBCursor cursor = collection.find();
 		while (cursor.hasNext()) {
 			BasicDBObject object = (BasicDBObject) cursor.next();
 			String oid = object.getString("_id");
-			System.out.println(oid);
 			ObjectId o = new ObjectId(oid);
 			Date d = o.getDate();
 			if (!d.before(startDate) && !d.after(endDate)) {
@@ -191,11 +229,21 @@ public class RegistarationController extends ParentController {
 	@ResponseBody
 	@org.codehaus.jackson.map.annotate.JsonView(User.class)
 	public User[] getAllUsers() {
+		Mongo mongo;
+		DB db;
+		DBCollection collection;
 		ArrayList<User> list = new ArrayList<User>();
 
-		Mongo mongo = new Mongo("localhost", 27017);
-		DB db = mongo.getDB("db");
-		DBCollection collection = db.getCollection("users");
+		try {
+			// Connection Settings
+			mongo = new Mongo("localhost", 27017);
+			db = mongo.getDB("db");
+			collection = db.getCollection("users");
+		} catch (MongoException me) {
+			System.out.println("A problem has occured.");
+			me.getMessage();
+			return new User[] {};
+		}
 
 		DBCursor cursor = collection.find();
 		while (cursor.hasNext()) {
@@ -209,5 +257,4 @@ public class RegistarationController extends ParentController {
 		User[] users = list.toArray(new User[list.size()]);
 		return users;
 	}
-
 }

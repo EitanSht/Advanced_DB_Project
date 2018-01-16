@@ -27,6 +27,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
+import com.mongodb.Mongo;
+import com.mongodb.MongoException;
 import com.opencsv.CSVReader;
 
 /**
@@ -35,32 +42,34 @@ import com.opencsv.CSVReader;
 @RestController
 @RequestMapping(value = "/items")
 public class ItemsController extends ParentController {
-
-	private MediaItems[] media_items = null;
-
 	/**
 	 * The function copy all the items(title and production year) from the Oracle
 	 * table MediaItems to the System storage. The Oracle table and data should be
 	 * used from the previous assignment
 	 */
+	@SuppressWarnings("deprecation")
 	@RequestMapping(value = "fill_media_items", method = { RequestMethod.GET })
 	public void fillMediaItems(HttpServletResponse response) {
-		System.out.println("was here");
-		
-		// Connection details
+		// Oracle connection details
 		Connection conn = null;
 		final String username = "eitansht";
 		final String password = "abcd";
 		final String connectionUrl = "jdbc:oracle:thin:@ora1.ise.bgu.ac.il:1521/oracle";
 		final String driver = "oracle.jdbc.driver.OracleDriver";
+		Mongo mongo = new Mongo("localhost", 27017);
+		DB db = mongo.getDB("db");
+		DBCollection collection = db.getCollection("items");
 
-		// Connect to Oracle
+		// Cleaning of the DB
+		collection.remove(new BasicDBObject());
+
+		// Connection to Oracle
 		try {
 			Class.forName(driver); // Driver registration
-			conn = DriverManager.getConnection(connectionUrl, username, password); // Connection
+			conn = DriverManager.getConnection(connectionUrl, username, password);
 			conn.setAutoCommit(false);
 		} catch (Exception e) {
-			e.printStackTrace();
+			System.out.println("An error during connecting to the server has occured .");
 			HttpStatus status = HttpStatus.NOT_FOUND;
 			response.setStatus(status.value());
 			return;
@@ -72,18 +81,23 @@ public class ItemsController extends ParentController {
 		try {
 			ps = conn.prepareStatement(query); // Compilation of the query
 			ResultSet rs = ps.executeQuery();
-			media_items = null;
-			ArrayList<MediaItems> list = new ArrayList<MediaItems>();
 			while (rs.next()) { // Iteration over the results
 				String movie = rs.getString("TITLE");
 				int year = rs.getInt("PROD_YEAR");
-				MediaItems m = new MediaItems(movie, year);
-				list.add(m); // Adding the movie to the list
+				try {
+					BasicDBObject document = new BasicDBObject();
+					document.put("movie", movie);
+					document.put("year", year);
+					collection.insert(document);
+				} catch (Exception e) {
+					System.out.println("A problem occured during the insertion of the data to MongoDB.");
+					HttpStatus status = HttpStatus.NOT_FOUND;
+					response.setStatus(status.value());
+				}
 			}
-			media_items = list.toArray(new MediaItems[list.size()]); // Returns an array from the arraylist
 			rs.close();
 		} catch (SQLException e) {
-			e.printStackTrace();
+			System.out.println("An error has occured.");
 			HttpStatus status = HttpStatus.NOT_FOUND;
 			response.setStatus(status.value());
 			return;
@@ -93,7 +107,7 @@ public class ItemsController extends ParentController {
 					ps.close();
 				}
 			} catch (SQLException e) {
-				e.printStackTrace();
+				System.out.println("An error has occured.");
 				HttpStatus status = HttpStatus.NOT_FOUND;
 				response.setStatus(status.value());
 				return;
@@ -105,11 +119,12 @@ public class ItemsController extends ParentController {
 			conn.close();
 		} catch (Exception e) {
 			e.printStackTrace();
+			System.out.println("An error has occured.");
 			HttpStatus status = HttpStatus.NOT_FOUND;
 			response.setStatus(status.value());
 			return;
 		}
-
+		
 		HttpStatus status = HttpStatus.OK;
 		response.setStatus(status.value());
 	}
@@ -121,15 +136,30 @@ public class ItemsController extends ParentController {
 	 * 
 	 * @throws IOException
 	 */
+	@SuppressWarnings("deprecation")
 	@RequestMapping(value = "fill_media_items_from_url", method = { RequestMethod.GET })
 	public void fillMediaItemsFromUrl(@RequestParam("url") String urladdress, HttpServletResponse response)
 			throws IOException {
-		System.out.println(urladdress);
+		Mongo mongo;
+		DB db;
+		DBCollection collection;
 		/*
 		 * https://drive.google.com/uc?export=download&id=1kKKkAJlqf0xzfOmLpX9sZC6Zfq8JZfxr
 		 */
-		media_items = null;
-		ArrayList<MediaItems> list = new ArrayList<MediaItems>();
+		try {
+			// Connection Settings
+			mongo = new Mongo("localhost", 27017);
+			db = mongo.getDB("db");
+			collection = db.getCollection("items");
+		} catch (MongoException me) {
+			System.out.println("A problem has occured.");
+			me.getMessage();
+			return;
+		}
+
+		// Cleaning of the DB
+		collection.remove(new BasicDBObject());
+
 		try {
 			URL stockURL = new URL(urladdress);
 			BufferedReader in = new BufferedReader(new InputStreamReader(stockURL.openStream()));
@@ -145,19 +175,24 @@ public class ItemsController extends ParentController {
 				year_str = year_str.replaceAll("\\s+", "");
 				int year = Integer.parseInt(year_str);
 
-				MediaItems m = new MediaItems(movie, year);
-				list.add(m);
+				try {
+					BasicDBObject document = new BasicDBObject();
+					document.put("movie", movie);
+					document.put("year", year);
+					collection.insert(document);
+				} catch (MongoException me) {
+					System.out.println("A problem occured during the insertion of the data to MongoDB.");
+					HttpStatus status = HttpStatus.NOT_FOUND;
+					response.setStatus(status.value());
+				}
 			}
 			reader.close();
-			media_items = list.toArray(new MediaItems[list.size()]);
 		} catch (Exception e) {
-			media_items = null;
 			System.out.println("An exception occured. Check the link.");
 			HttpStatus status = HttpStatus.NOT_FOUND;
 			response.setStatus(status.value());
 			return;
 		}
-		//
 		HttpStatus status = HttpStatus.OK;
 		response.setStatus(status.value());
 	}
@@ -166,24 +201,58 @@ public class ItemsController extends ParentController {
 	 * The function retrieves from the system storage N items, order is not
 	 * important( any N items)
 	 * 
-	 * @param topN - how many items to retrieve
+	 * @param topN
+	 *            - how many items to retrieve
 	 * @return
 	 */
+	@SuppressWarnings("deprecation")
 	@RequestMapping(value = "get_topn_items", headers = "Accept=*/*", method = {
 			RequestMethod.GET }, produces = "application/json")
 	@ResponseBody
 	@org.codehaus.jackson.map.annotate.JsonView(MediaItems.class)
 	public MediaItems[] getTopNItems(@RequestParam("topn") int topN) {
-		if (null == media_items) {
+		Mongo mongo;
+		DB db;
+		DBCollection collection;
+		ArrayList<MediaItems> list = new ArrayList<MediaItems>();
+
+		if (topN < 0) {
+			System.out.println("Please select a legal number.");
 			return new MediaItems[] {};
 		}
-		if ((topN > media_items.length) || (topN < 0)) {
+		try {
+			// Connection Settings
+			mongo = new Mongo("localhost", 27017);
+			db = mongo.getDB("db");
+			collection = db.getCollection("items");
+		} catch (MongoException me) {
+			System.out.println("A problem has occured.");
+			me.getMessage();
+			return new MediaItems[] {};
+		}
+
+		int i = 0;
+		try {
+			DBCursor cursor = collection.find();
+			while (cursor.hasNext() && i < topN) {
+				DBObject o = cursor.next();
+				String movie = (String) o.get("movie");
+				int year = (Integer) o.get("year");
+				MediaItems m = new MediaItems(movie, year);
+				list.add(m); // Adding the movie to the list
+				i++;
+			}
+		} catch (MongoException me) {
+			System.out.println("An error has occured.");
+			me.getMessage();
+			return new MediaItems[] {};
+		}
+		if (list.size() == 0) {
+			return new MediaItems[] {};
+		}
+		if (topN > list.size()) {
 			System.out.println("Please select an different number of records.");
 			return new MediaItems[] {};
-		}
-		ArrayList<MediaItems> list = new ArrayList<MediaItems>();
-		for (int i = 0; i < topN; i++) {
-			list.add(media_items[i]);
 		}
 		return list.toArray(new MediaItems[list.size()]);
 	}

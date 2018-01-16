@@ -73,10 +73,10 @@ $(document).ready(function () {
 			url: url,
 			statusCode: {
 				409: function (jqXHR, textStatus, errorThrown) {
-					setMessagePopUp("problem", 'Team Name "'+mandator.username+'" already exist, please use a new one',true);
+					setMessagePopUp("problem", 'User "'+mandator.username+'" already exist, please use a new one',true);
 				},
 				408: function (jqXHR, textStatus, errorThrown) {
-					setMessagePopUp("problem", 'Email "'+mandator.username+'" already exist, please use a new one',true);
+					setMessagePopUp("problem", 'User "'+mandator.username+'" already exist, please use a new one',true);
 				}
 			},
 			success: function (json) {

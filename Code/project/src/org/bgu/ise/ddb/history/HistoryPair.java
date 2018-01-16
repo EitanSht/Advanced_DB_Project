@@ -14,15 +14,15 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
  *
  */
 @JsonAutoDetect(fieldVisibility = Visibility.NON_PRIVATE, getterVisibility = Visibility.NONE, creatorVisibility = Visibility.NON_PRIVATE)
-public class HistoryPair  implements Serializable{
-	
+public class HistoryPair implements Serializable {
+
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	
+
 	String credentials;
-	
+
 	Date viewtime;
 
 	/**
@@ -43,7 +43,8 @@ public class HistoryPair  implements Serializable{
 	}
 
 	/**
-	 * @param credentials the credentials to set
+	 * @param credentials
+	 *            the credentials to set
 	 */
 	public void setCredentials(String credentials) {
 		this.credentials = credentials;
@@ -57,21 +58,21 @@ public class HistoryPair  implements Serializable{
 	}
 
 	/**
-	 * @param viewtime the viewtime to set
+	 * @param viewtime
+	 *            the viewtime to set
 	 */
 	public void setViewtime(Date viewtime) {
 		this.viewtime = viewtime;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
 	public String toString() {
-		return "HistoryPair [credentials=" + credentials + ", viewtime="
-				+ viewtime + "]";
+		return "HistoryPair [credentials=" + credentials + ", viewtime=" + viewtime + "]";
 	}
-	
-	
 
 }
